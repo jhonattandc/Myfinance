@@ -1,0 +1,30 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment / local overrides
+.env
+.env.*
+
+# XAMPP / temporary
+php_error_log
+error_log
+
+# Dependency / package leftovers
+node_modules/
+vendor/
+
+# Build / cache
+dist/
+build/
+coverage/
+.cache/
+
+# Archive / export
+*.zip
+*.rar
