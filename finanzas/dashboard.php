@@ -19,10 +19,16 @@ $stmt->execute([$userId]);
 $totalExpenses = (float) $stmt->fetchColumn();
 
 $balanceMonth = $incomeMonth - $expenseMonth;
+$carteraStmt = $pdo->prepare("SELECT COALESCE(SUM(monto_total - monto_cobrado), 0) FROM cartera WHERE user_id = ? AND (estado IN ('pendiente', 'vencida')) AND (monto_total - monto_cobrado) > 0");
+$carteraStmt->execute([$userId]);
+$carteraPending = (float) $carteraStmt->fetchColumn();
+$projectedBalance = $balanceMonth + $carteraPending;
 
 $obligationStmt = $pdo->prepare("SELECT *, (monto_total - monto_pagado) AS saldo_pendiente FROM obligaciones WHERE user_id = ? AND estado = 'activa' ORDER BY fecha_limite IS NULL, fecha_limite ASC, created_at DESC");
 $obligationStmt->execute([$userId]);
 $obligations = $obligationStmt->fetchAll();
+
+$carteraItems = fetch_active_cartera($pdo, $userId);
 
 $recentStmt = $pdo->prepare("SELECT g.*, c.nombre AS categoria_nombre, c.color AS categoria_color, o.nombre AS obligacion_nombre FROM gastos g INNER JOIN categorias c ON c.id = g.categoria_id LEFT JOIN obligaciones o ON o.id = g.obligacion_id WHERE g.user_id = ? ORDER BY g.fecha DESC, g.id DESC LIMIT 10");
 $recentStmt->execute([$userId]);
@@ -44,11 +50,59 @@ include __DIR__ . '/includes/header.php';
     <article class="kpi-card card">
         <span>📊 Balance del mes</span>
         <strong class="<?php echo $balanceMonth >= 0 ? 'text-success' : 'text-danger'; ?>"><?php echo e(format_currency($balanceMonth)); ?></strong>
+        <small class="metric-note">Con cartera proyecta: <?php echo e(format_currency($projectedBalance)); ?></small>
     </article>
     <article class="kpi-card card">
-        <span>📋 Total gastos histórico</span>
-        <strong class="text-muted-light"><?php echo e(format_currency($totalExpenses)); ?></strong>
+        <span>🧾 Cartera pendiente</span>
+        <strong class="text-warning"><?php echo e(format_currency($carteraPending)); ?></strong>
+        <small class="metric-note">Pendiente por ingresar</small>
     </article>
+</section>
+
+<section class="section-block">
+    <div class="section-head">
+        <div>
+            <h2>🧾 Cartera por cobrar</h2>
+            <p>Dinero prestado que aún no ha entrado a caja.</p>
+        </div>
+        <a href="cartera.php" class="btn btn-secondary">Administrar</a>
+    </div>
+    <?php if ($carteraItems): ?>
+        <div class="obligation-grid dashboard-obligations">
+            <?php foreach ($carteraItems as $item): ?>
+                <?php
+                $percentage = $item['monto_total'] > 0 ? min(100, max(0, ($item['monto_cobrado'] / $item['monto_total']) * 100)) : 0;
+                $days = obligation_days_remaining($item['fecha_limite']);
+                ?>
+                <article class="card obligation-widget">
+                    <div class="obligation-topline">
+                        <div>
+                            <h3><?php echo e($item['persona']); ?></h3>
+                            <p><?php echo e($item['concepto']); ?></p>
+                        </div>
+                        <span class="badge <?php echo e(cartera_status_class($item['estado'])); ?>"><?php echo e(cartera_status_label($item['estado'])); ?></span>
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" style="width: <?php echo e((string) round($percentage, 2)); ?>%; background: <?php echo e(obligation_progress_color($percentage)); ?>"></div>
+                    </div>
+                    <div class="obligation-meta">
+                        <span>Cobrado: <?php echo e(format_currency((float) $item['monto_cobrado'])); ?> / <?php echo e(format_currency((float) $item['monto_total'])); ?></span>
+                        <?php if ($days !== null): ?>
+                            <span class="badge <?php echo $days < 0 ? 'danger' : 'neutral'; ?>"><?php echo $days >= 0 ? e($days . ' días restantes') : e(abs($days) . ' días vencida'); ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-actions">
+                        <span class="text-warning">Pendiente: <?php echo e(format_currency((float) $item['saldo_pendiente'])); ?></span>
+                    </div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="card empty-state">
+            <p>No tienes cartera registrada.</p>
+            <a href="cartera.php" class="btn btn-primary">Registrar cartera</a>
+        </div>
+    <?php endif; ?>
 </section>
 
 <section class="section-block">

@@ -47,6 +47,21 @@ CREATE TABLE ingresos (
   CONSTRAINT fk_ingresos_usuario FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
 
+CREATE TABLE cartera (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  persona VARCHAR(150) NOT NULL,
+  concepto VARCHAR(200) NOT NULL,
+  monto_total DECIMAL(15,2) NOT NULL,
+  monto_cobrado DECIMAL(15,2) NOT NULL DEFAULT 0,
+  fecha_prestamo DATE NOT NULL,
+  fecha_limite DATE NULL,
+  estado ENUM('pendiente', 'cobrada', 'vencida') NOT NULL DEFAULT 'pendiente',
+  notas TEXT NULL,
+  user_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_cartera_usuario FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
+);
+
 CREATE TABLE gastos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   descripcion VARCHAR(200) NOT NULL,

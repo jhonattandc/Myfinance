@@ -97,8 +97,10 @@ p { margin: 0; }
 .kpi-card strong { display: block; margin-top: 12px; font-size: 30px; font-weight: 700; }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
+.text-warning { color: var(--warning); }
 .text-secondary { color: var(--text-secondary); }
 .text-muted-light { color: var(--text-primary); opacity: .78; }
+.metric-note { display: block; margin-top: 8px; color: var(--text-secondary); font-size: 12px; }
 .btn {
   border: 0;
   border-radius: 8px;
@@ -179,6 +181,9 @@ textarea { resize: vertical; min-height: 96px; }
 .badge.status-activa { background: rgba(72, 187, 120, 0.15); color: var(--success); }
 .badge.status-pagada { background: rgba(99, 179, 237, 0.15); color: var(--obligation); }
 .badge.status-congelada { background: rgba(246, 173, 85, 0.15); color: var(--warning); }
+.badge.status-pendiente { background: rgba(246, 173, 85, 0.15); color: var(--warning); }
+.badge.status-vencida { background: rgba(252, 129, 129, 0.15); color: var(--danger); }
+.badge.status-cobrada { background: rgba(72, 187, 120, 0.15); color: var(--success); }
 .progress-bar-track {
   background: var(--bg-input);
   border-radius: 999px;

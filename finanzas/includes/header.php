@@ -12,6 +12,7 @@ $navigation = [
     'dashboard.php' => '🏠 Dashboard',
     'ingresos.php' => '💰 Ingresos',
     'gastos.php' => '💸 Gastos',
+    'cartera.php' => '🧾 Cartera',
     'obligaciones.php' => '🏦 Obligaciones',
     'categorias.php' => '🏷️ Categorías',
 ];

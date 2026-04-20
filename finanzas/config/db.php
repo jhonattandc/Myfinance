@@ -203,6 +203,13 @@ function fetch_active_obligations(PDO $pdo, int $userId): array
     return $stmt->fetchAll();
 }
 
+function fetch_active_cartera(PDO $pdo, int $userId): array
+{
+    $stmt = $pdo->prepare("SELECT *, (monto_total - monto_cobrado) AS saldo_pendiente FROM cartera WHERE user_id = ? AND (estado IN ('pendiente', 'vencida')) AND (monto_total - monto_cobrado) > 0 ORDER BY fecha_limite IS NULL, fecha_limite ASC, created_at DESC");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll();
+}
+
 function validate_category_ownership(PDO $pdo, int $categoryId, int $userId): bool
 {
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM categorias WHERE id = ? AND user_id = ?');
@@ -220,6 +227,36 @@ function validate_obligation_ownership(PDO $pdo, int $obligationId, int $userId,
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$obligationId, $userId]);
     return (bool) $stmt->fetchColumn();
+}
+
+function cartera_status_label(string $status): string
+{
+    return match ($status) {
+        'cobrada' => 'Cobrada',
+        'vencida' => 'Vencida',
+        default => 'Pendiente',
+    };
+}
+
+function cartera_status_class(string $status): string
+{
+    return 'status-' . $status;
+}
+
+function normalize_cartera_status(array $data): string
+{
+    if ((float) $data['monto_cobrado'] >= (float) $data['monto_total']) {
+        return 'cobrada';
+    }
+
+    if (!empty($data['fecha_limite'])) {
+        $days = obligation_days_remaining($data['fecha_limite']);
+        if ($days !== null && $days < 0) {
+            return 'vencida';
+        }
+    }
+
+    return $data['estado'] === 'vencida' ? 'vencida' : 'pendiente';
 }
 
 function upsert_income(PDO $pdo, int $userId, array $data, ?int $incomeId = null): void
@@ -260,6 +297,41 @@ function upsert_expense(PDO $pdo, int $userId, array $data, ?int $expenseId = nu
         $data['categoria_id'],
         $data['obligacion_id'],
         $data['es_pago_obligacion'],
+        $data['notas'],
+        $userId,
+    ]);
+}
+
+function upsert_cartera(PDO $pdo, int $userId, array $data, ?int $carteraId = null): void
+{
+    $data['estado'] = normalize_cartera_status($data);
+
+    if ($carteraId) {
+        $stmt = $pdo->prepare('UPDATE cartera SET persona = ?, concepto = ?, monto_total = ?, monto_cobrado = ?, fecha_prestamo = ?, fecha_limite = ?, estado = ?, notas = ? WHERE id = ? AND user_id = ?');
+        $stmt->execute([
+            $data['persona'],
+            $data['concepto'],
+            $data['monto_total'],
+            $data['monto_cobrado'],
+            $data['fecha_prestamo'],
+            $data['fecha_limite'],
+            $data['estado'],
+            $data['notas'],
+            $carteraId,
+            $userId,
+        ]);
+        return;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO cartera (persona, concepto, monto_total, monto_cobrado, fecha_prestamo, fecha_limite, estado, notas, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $stmt->execute([
+        $data['persona'],
+        $data['concepto'],
+        $data['monto_total'],
+        $data['monto_cobrado'],
+        $data['fecha_prestamo'],
+        $data['fecha_limite'],
+        $data['estado'],
         $data['notas'],
         $userId,
     ]);

@@ -22,6 +22,7 @@ Sistema de finanzas personales en PHP 8 + MySQL + HTML/CSS/JS vanilla, listo par
 - `dashboard.php`: KPIs, obligaciones, gráficas y últimos gastos.
 - `ingresos.php`: CRUD de ingresos.
 - `gastos.php`: CRUD de gastos con filtros y vínculo a obligaciones.
+- `cartera.php`: gestión de dinero prestado pendiente por ingresar.
 - `obligaciones.php`: gestión completa de deuda y pagos rápidos.
 - `categorias.php`: CRUD de categorías.
 - `assets/style.css`: UI dark mode responsive.
@@ -33,3 +34,4 @@ Sistema de finanzas personales en PHP 8 + MySQL + HTML/CSS/JS vanilla, listo par
 - Todas las consultas usan `PDO` con sentencias preparadas.
 - El login no muestra credenciales en pantalla; quedaron documentadas aquí en el README.
 - El `finanzas.sql` deja la app sin movimientos precargados para que ingreses datos reales desde cero.
+- El dashboard contempla `cartera` como dinero pendiente por ingresar y muestra el balance proyectado.
