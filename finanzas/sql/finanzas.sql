@@ -42,6 +42,7 @@ CREATE TABLE ingresos (
   monto DECIMAL(15,2) NOT NULL,
   fecha DATE NOT NULL,
   notas TEXT NULL,
+  cartera_id INT NULL,
   user_id INT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_ingresos_usuario FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
@@ -61,6 +62,9 @@ CREATE TABLE cartera (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_cartera_usuario FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE
 );
+
+ALTER TABLE ingresos
+ADD CONSTRAINT fk_ingresos_cartera FOREIGN KEY (cartera_id) REFERENCES cartera(id) ON DELETE SET NULL;
 
 CREATE TABLE gastos (
   id INT AUTO_INCREMENT PRIMARY KEY,

@@ -30,10 +30,6 @@ $obligations = $obligationStmt->fetchAll();
 
 $carteraItems = fetch_active_cartera($pdo, $userId);
 
-$recentStmt = $pdo->prepare("SELECT g.*, c.nombre AS categoria_nombre, c.color AS categoria_color, o.nombre AS obligacion_nombre FROM gastos g INNER JOIN categorias c ON c.id = g.categoria_id LEFT JOIN obligaciones o ON o.id = g.obligacion_id WHERE g.user_id = ? ORDER BY g.fecha DESC, g.id DESC LIMIT 10");
-$recentStmt->execute([$userId]);
-$recentExpenses = $recentStmt->fetchAll();
-
 $chartData = fetch_dashboard_chart_data($pdo, $userId);
 
 include __DIR__ . '/includes/header.php';
@@ -59,14 +55,21 @@ include __DIR__ . '/includes/header.php';
     </article>
 </section>
 
-<section class="section-block">
+<section class="section-block collapsible-section is-open" data-dashboard-section data-storage-key="dashboard-cartera-open">
     <div class="section-head">
         <div>
             <h2>🧾 Cartera por cobrar</h2>
             <p>Dinero prestado que aún no ha entrado a caja.</p>
         </div>
-        <a href="cartera.php" class="btn btn-secondary">Administrar</a>
+        <div class="section-actions">
+            <button class="btn btn-secondary btn-toggle" type="button" data-dashboard-toggle aria-expanded="true">
+                <span class="toggle-icon" aria-hidden="true">^</span>
+                <span data-toggle-label>Ocultar</span>
+            </button>
+            <a href="cartera.php" class="btn btn-secondary">Administrar</a>
+        </div>
     </div>
+    <div class="collapsible-body">
     <?php if ($carteraItems): ?>
         <div class="obligation-grid dashboard-obligations">
             <?php foreach ($carteraItems as $item): ?>
@@ -103,16 +106,24 @@ include __DIR__ . '/includes/header.php';
             <a href="cartera.php" class="btn btn-primary">Registrar cartera</a>
         </div>
     <?php endif; ?>
+    </div>
 </section>
 
-<section class="section-block">
+<section class="section-block collapsible-section is-open" data-dashboard-section data-storage-key="dashboard-obligations-open">
     <div class="section-head">
         <div>
             <h2>🏦 Mis Obligaciones</h2>
             <p>Monitorea el avance de tus pagos activos.</p>
         </div>
-        <a href="obligaciones.php" class="btn btn-secondary">Administrar</a>
+        <div class="section-actions">
+            <button class="btn btn-secondary btn-toggle" type="button" data-dashboard-toggle aria-expanded="true">
+                <span class="toggle-icon" aria-hidden="true">^</span>
+                <span data-toggle-label>Ocultar</span>
+            </button>
+            <a href="obligaciones.php" class="btn btn-secondary">Administrar</a>
+        </div>
     </div>
+    <div class="collapsible-body">
     <?php if ($obligations): ?>
         <div class="obligation-grid dashboard-obligations">
             <?php foreach ($obligations as $obligation): ?>
@@ -149,6 +160,7 @@ include __DIR__ . '/includes/header.php';
             <a href="obligaciones.php" class="btn btn-primary">Registrar primera obligación</a>
         </div>
     <?php endif; ?>
+    </div>
 </section>
 
 <section class="chart-grid two-up">
@@ -159,7 +171,9 @@ include __DIR__ . '/includes/header.php';
                 <p>Últimos 6 meses</p>
             </div>
         </div>
-        <canvas id="expensesMonthlyChart" data-chart='<?php echo e(json_encode($chartData['monthly'], JSON_UNESCAPED_UNICODE)); ?>'></canvas>
+        <div class="chart-frame">
+            <canvas id="expensesMonthlyChart" data-chart='<?php echo e(json_encode($chartData['monthly'], JSON_UNESCAPED_UNICODE)); ?>'></canvas>
+        </div>
     </article>
     <article class="card chart-card">
         <div class="section-head compact">
@@ -168,50 +182,10 @@ include __DIR__ . '/includes/header.php';
                 <p>Mes actual</p>
             </div>
         </div>
-        <canvas id="expensesCategoryChart" data-chart='<?php echo e(json_encode($chartData['categories'], JSON_UNESCAPED_UNICODE)); ?>'></canvas>
+        <div class="chart-frame">
+            <canvas id="expensesCategoryChart" data-chart='<?php echo e(json_encode($chartData['categories'], JSON_UNESCAPED_UNICODE)); ?>'></canvas>
+        </div>
     </article>
 </section>
 
-<section class="section-block">
-    <div class="section-head">
-        <div>
-            <h2>Últimos 10 gastos</h2>
-            <p>Movimiento más reciente de tus salidas.</p>
-        </div>
-    </div>
-    <div class="card table-card table-scroll">
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Descripción</th>
-                    <th>Categoría</th>
-                    <th>Obligación</th>
-                    <th>Monto</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($recentExpenses as $expense): ?>
-                    <tr>
-                        <td><?php echo e(date('d/m/Y', strtotime($expense['fecha']))); ?></td>
-                        <td><?php echo e($expense['descripcion']); ?></td>
-                        <td>
-                            <span class="badge" style="background: <?php echo e(badge_rgba($expense['categoria_color'])); ?>; color: <?php echo e($expense['categoria_color']); ?>">
-                                <?php echo e($expense['categoria_nombre']); ?>
-                            </span>
-                        </td>
-                        <td>
-                            <?php if ($expense['obligacion_nombre']): ?>
-                                <span class="badge obligation"><?php echo e('🏦 ' . $expense['obligacion_nombre']); ?></span>
-                            <?php else: ?>
-                                <span class="text-secondary">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-danger"><?php echo e(format_currency((float) $expense['monto'])); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</section>
 <?php include __DIR__ . '/includes/footer.php'; ?>

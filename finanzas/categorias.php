@@ -97,36 +97,43 @@ include __DIR__ . '/includes/header.php';
                 <p>Listado completo y uso asociado.</p>
             </div>
         </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>Preview</th>
-                    <th>Ícono</th>
-                    <th>Nombre</th>
-                    <th>N° gastos</th>
-                    <th>Editar</th>
-                    <th>Eliminar</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($categories as $category): ?>
+        <?php if ($categories): ?>
+            <table>
+                <thead>
                     <tr>
-                        <td><span class="color-dot" style="background: <?php echo e($category['color']); ?>"></span></td>
-                        <td><?php echo e($category['icono']); ?></td>
-                        <td><?php echo e($category['nombre']); ?></td>
-                        <td><?php echo e((string) $category['total_gastos']); ?></td>
-                        <td><a class="icon-button text-link" href="categorias.php?edit=<?php echo e((string) $category['id']); ?>">✏️</a></td>
-                        <td>
-                            <form method="post" onsubmit="return confirm('¿Deseas eliminar esta categoría?');">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="id" value="<?php echo e((string) $category['id']); ?>">
-                                <button class="icon-button danger-link" type="submit" <?php echo $category['total_gastos'] > 0 ? 'disabled' : ''; ?>>🗑️</button>
-                            </form>
-                        </td>
+                        <th>Preview</th>
+                        <th>Ícono</th>
+                        <th>Nombre</th>
+                        <th>N° gastos</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php foreach ($categories as $category): ?>
+                        <tr>
+                            <td><span class="color-dot" style="background: <?php echo e($category['color']); ?>"></span></td>
+                            <td><?php echo e($category['icono']); ?></td>
+                            <td><?php echo e($category['nombre']); ?></td>
+                            <td><?php echo e((string) $category['total_gastos']); ?></td>
+                            <td><a class="icon-button text-link" href="categorias.php?edit=<?php echo e((string) $category['id']); ?>">✏️</a></td>
+                            <td>
+                                <form method="post" onsubmit="return confirm('¿Deseas eliminar esta categoría?');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?php echo e((string) $category['id']); ?>">
+                                    <button class="icon-button danger-link" type="submit" <?php echo $category['total_gastos'] > 0 ? 'disabled' : ''; ?>>🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="empty-state padded-empty">
+                <p>Aún no has creado categorías.</p>
+                <p class="text-secondary">Empieza con categorías como Alimentación, Transporte o Servicios para poder registrar gastos correctamente.</p>
+            </div>
+        <?php endif; ?>
     </article>
 </section>
 <?php include __DIR__ . '/includes/footer.php'; ?>

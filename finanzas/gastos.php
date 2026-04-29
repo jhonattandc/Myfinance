@@ -12,6 +12,22 @@ $editExpense = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'save';
 
+    if ($action === 'quick_category') {
+        $name = trim($_POST['quick_nombre'] ?? '');
+        $color = $_POST['quick_color'] ?? '#6c63ff';
+        $icon = trim($_POST['quick_icono'] ?? '🏷️');
+
+        if ($name === '') {
+            flash('error', 'Necesitas crear al menos una categoría antes de registrar gastos.');
+        } else {
+            $stmt = $pdo->prepare('INSERT INTO categorias (nombre, color, icono, user_id) VALUES (?, ?, ?, ?)');
+            $stmt->execute([$name, $color, $icon, $userId]);
+            flash('success', 'Categoría creada. Ya puedes registrar tu gasto.');
+        }
+
+        redirect('gastos.php');
+    }
+
     if ($action === 'delete') {
         $id = (int) ($_POST['id'] ?? 0);
         $stmt = $pdo->prepare('SELECT o.nombre FROM gastos g LEFT JOIN obligaciones o ON o.id = g.obligacion_id WHERE g.id = ? AND g.user_id = ?');
@@ -119,67 +135,98 @@ include __DIR__ . '/includes/header.php';
                 <p>Captura gastos comunes o pagos vinculados a obligaciones.</p>
             </div>
         </div>
-        <form method="post" class="stack-form" id="expenseForm">
-            <input type="hidden" name="id" value="<?php echo e((string) ($editExpense['id'] ?? '')); ?>">
-            <label>
-                <span>Descripción</span>
-                <input type="text" name="descripcion" required value="<?php echo e($editExpense['descripcion'] ?? ''); ?>">
-            </label>
-            <div class="form-row two-columns">
-                <label>
-                    <span>Monto COP</span>
-                    <input type="number" step="0.01" min="0" name="monto" id="expenseAmount" required value="<?php echo e((string) ($editExpense['monto'] ?? '')); ?>">
-                </label>
-                <label>
-                    <span>Fecha</span>
-                    <input type="date" name="fecha" required value="<?php echo e($editExpense['fecha'] ?? date('Y-m-d')); ?>">
-                </label>
+        <?php if (!$categories): ?>
+            <div class="empty-state">
+                <p>No puedes registrar gastos todavía porque no tienes categorías creadas.</p>
+                <p class="text-secondary">Crea tu primera categoría aquí mismo o administra todas desde el módulo de categorías.</p>
             </div>
-            <label>
-                <span>Categoría</span>
-                <select name="categoria_id" required>
-                    <option value="">Selecciona</option>
-                    <?php foreach ($categories as $category): ?>
-                        <option value="<?php echo e((string) $category['id']); ?>" <?php echo ((int) ($editExpense['categoria_id'] ?? 0) === (int) $category['id']) ? 'selected' : ''; ?>>
-                            <?php echo e($category['icono'] . ' ' . $category['nombre']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <?php $checkedObligation = (int) ($editExpense['es_pago_obligacion'] ?? 0) === 1; ?>
-            <fieldset class="radio-group">
-                <legend>¿Este gasto corresponde a una obligación?</legend>
-                <label><input type="radio" name="es_pago_obligacion" value="0" <?php echo !$checkedObligation ? 'checked' : ''; ?>> No</label>
-                <label><input type="radio" name="es_pago_obligacion" value="1" <?php echo $checkedObligation ? 'checked' : ''; ?>> Sí</label>
-            </fieldset>
-            <div class="conditional-panel <?php echo $checkedObligation ? 'is-visible' : ''; ?>" id="obligationPanel">
+            <form method="post" class="stack-form">
+                <input type="hidden" name="action" value="quick_category">
                 <label>
-                    <span>Selecciona una obligación</span>
-                    <select name="obligacion_id" id="obligationSelect">
-                        <option value="">Selecciona una obligación</option>
-                        <?php foreach ($activeObligations as $obligation): ?>
-                            <option
-                                value="<?php echo e((string) $obligation['id']); ?>"
-                                data-name="<?php echo e($obligation['nombre']); ?>"
-                                data-icon="<?php echo e($obligation['icono']); ?>"
-                                data-total="<?php echo e((string) $obligation['monto_total']); ?>"
-                                data-paid="<?php echo e((string) $obligation['monto_pagado']); ?>"
-                                data-pending="<?php echo e((string) $obligation['saldo_pendiente']); ?>"
-                                <?php echo ((int) ($editExpense['obligacion_id'] ?? 0) === (int) $obligation['id']) ? 'selected' : ''; ?>
-                            >
-                                <?php echo e($obligation['icono'] . ' ' . $obligation['nombre']); ?>
+                    <span>Nombre de la categoría</span>
+                    <input type="text" name="quick_nombre" placeholder="Ej: Alimentación" required>
+                </label>
+                <div class="form-row two-columns">
+                    <label>
+                        <span>Color</span>
+                        <input type="color" name="quick_color" value="#6c63ff">
+                    </label>
+                    <label>
+                        <span>Ícono</span>
+                        <input type="text" name="quick_icono" value="🏷️">
+                    </label>
+                </div>
+                <div class="card-actions wrap">
+                    <button type="submit" class="btn btn-primary">Crear categoría</button>
+                    <a href="categorias.php" class="btn btn-secondary">Gestionar categorías</a>
+                </div>
+            </form>
+        <?php else: ?>
+            <form method="post" class="stack-form" id="expenseForm">
+                <input type="hidden" name="id" value="<?php echo e((string) ($editExpense['id'] ?? '')); ?>">
+                <label>
+                    <span>Descripción</span>
+                    <input type="text" name="descripcion" required value="<?php echo e($editExpense['descripcion'] ?? ''); ?>">
+                </label>
+                <div class="form-row two-columns">
+                    <label>
+                        <span>Monto COP</span>
+                        <input type="number" step="0.01" min="0" name="monto" id="expenseAmount" required value="<?php echo e((string) ($editExpense['monto'] ?? '')); ?>">
+                    </label>
+                    <label>
+                        <span>Fecha</span>
+                        <input type="date" name="fecha" required value="<?php echo e($editExpense['fecha'] ?? date('Y-m-d')); ?>">
+                    </label>
+                </div>
+                <label>
+                    <span>Categoría</span>
+                    <select name="categoria_id" required>
+                        <option value="">Selecciona</option>
+                        <?php foreach ($categories as $category): ?>
+                            <option value="<?php echo e((string) $category['id']); ?>" <?php echo ((int) ($editExpense['categoria_id'] ?? 0) === (int) $category['id']) ? 'selected' : ''; ?>>
+                                <?php echo e($category['icono'] . ' ' . $category['nombre']); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <div class="obligation-preview" id="obligationPreview"></div>
-            </div>
-            <label>
-                <span>Notas (opcional)</span>
-                <textarea name="notas" rows="4"><?php echo e($editExpense['notas'] ?? ''); ?></textarea>
-            </label>
-            <button type="submit" class="btn btn-primary"><?php echo $editExpense ? 'Guardar cambios' : 'Registrar gasto'; ?></button>
-        </form>
+                <?php $checkedObligation = (int) ($editExpense['es_pago_obligacion'] ?? 0) === 1; ?>
+                <fieldset class="radio-group">
+                    <legend>¿Este gasto corresponde a una obligación?</legend>
+                    <label><input type="radio" name="es_pago_obligacion" value="0" <?php echo !$checkedObligation ? 'checked' : ''; ?>> No</label>
+                    <label><input type="radio" name="es_pago_obligacion" value="1" <?php echo $checkedObligation ? 'checked' : ''; ?>> Sí</label>
+                </fieldset>
+                <div class="conditional-panel <?php echo $checkedObligation ? 'is-visible' : ''; ?>" id="obligationPanel">
+                    <label>
+                        <span>Selecciona una obligación</span>
+                        <select name="obligacion_id" id="obligationSelect">
+                            <option value="">Selecciona una obligación</option>
+                            <?php foreach ($activeObligations as $obligation): ?>
+                                <option
+                                    value="<?php echo e((string) $obligation['id']); ?>"
+                                    data-name="<?php echo e($obligation['nombre']); ?>"
+                                    data-icon="<?php echo e($obligation['icono']); ?>"
+                                    data-total="<?php echo e((string) $obligation['monto_total']); ?>"
+                                    data-paid="<?php echo e((string) $obligation['monto_pagado']); ?>"
+                                    data-pending="<?php echo e((string) $obligation['saldo_pendiente']); ?>"
+                                    <?php echo ((int) ($editExpense['obligacion_id'] ?? 0) === (int) $obligation['id']) ? 'selected' : ''; ?>
+                                >
+                                    <?php echo e($obligation['icono'] . ' ' . $obligation['nombre']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <div class="obligation-preview" id="obligationPreview"></div>
+                </div>
+                <label>
+                    <span>Notas (opcional)</span>
+                    <textarea name="notas" rows="4"><?php echo e($editExpense['notas'] ?? ''); ?></textarea>
+                </label>
+                <div class="card-actions wrap">
+                    <button type="submit" class="btn btn-primary"><?php echo $editExpense ? 'Guardar cambios' : 'Registrar gasto'; ?></button>
+                    <a href="categorias.php" class="btn btn-secondary">Gestionar categorías</a>
+                </div>
+            </form>
+        <?php endif; ?>
     </article>
 
     <article class="card table-card">
@@ -248,49 +295,56 @@ include __DIR__ . '/includes/header.php';
         </div>
     </div>
     <div class="card table-card table-scroll">
-        <table>
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Descripción</th>
-                    <th>Categoría</th>
-                    <th>Obligación</th>
-                    <th>Monto</th>
-                    <th>Editar</th>
-                    <th>Eliminar</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($expenses as $expense): ?>
+        <?php if ($expenses): ?>
+            <table>
+                <thead>
                     <tr>
-                        <td><?php echo e(date('d/m/Y', strtotime($expense['fecha']))); ?></td>
-                        <td><?php echo e($expense['descripcion']); ?></td>
-                        <td>
-                            <span class="badge" style="background: <?php echo e(badge_rgba($expense['categoria_color'])); ?>; color: <?php echo e($expense['categoria_color']); ?>">
-                                <?php echo e($expense['categoria_nombre']); ?>
-                            </span>
-                        </td>
-                        <td>
-                            <?php if ($expense['obligacion_nombre']): ?>
-                                <span class="badge obligation"><?php echo e('🏦 ' . $expense['obligacion_nombre']); ?></span>
-                            <?php else: ?>
-                                <span class="text-secondary">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-danger"><?php echo e(format_currency((float) $expense['monto'])); ?></td>
-                        <td><a class="icon-button text-link" href="gastos.php?edit=<?php echo e((string) $expense['id']); ?>">✏️</a></td>
-                        <td>
-                            <?php $confirm = $expense['obligacion_nombre'] ? 'Este gasto está vinculado a la obligación ' . $expense['obligacion_nombre'] . '. Eliminarlo reducirá el monto pagado. ¿Deseas continuar?' : '¿Deseas eliminar este gasto?'; ?>
-                            <form method="post" onsubmit="return confirm('<?php echo e($confirm); ?>');">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="id" value="<?php echo e((string) $expense['id']); ?>">
-                                <button class="icon-button danger-link" type="submit">🗑️</button>
-                            </form>
-                        </td>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Categoría</th>
+                        <th>Obligación</th>
+                        <th>Monto</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php foreach ($expenses as $expense): ?>
+                        <tr>
+                            <td><?php echo e(date('d/m/Y', strtotime($expense['fecha']))); ?></td>
+                            <td><?php echo e($expense['descripcion']); ?></td>
+                            <td>
+                                <span class="badge" style="background: <?php echo e(badge_rgba($expense['categoria_color'])); ?>; color: <?php echo e($expense['categoria_color']); ?>">
+                                    <?php echo e($expense['categoria_nombre']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if ($expense['obligacion_nombre']): ?>
+                                    <span class="badge obligation"><?php echo e('🏦 ' . $expense['obligacion_nombre']); ?></span>
+                                <?php else: ?>
+                                    <span class="text-secondary">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="text-danger"><?php echo e(format_currency((float) $expense['monto'])); ?></td>
+                            <td><a class="icon-button text-link" href="gastos.php?edit=<?php echo e((string) $expense['id']); ?>">✏️</a></td>
+                            <td>
+                                <?php $confirm = $expense['obligacion_nombre'] ? 'Este gasto está vinculado a la obligación ' . $expense['obligacion_nombre'] . '. Eliminarlo reducirá el monto pagado. ¿Deseas continuar?' : '¿Deseas eliminar este gasto?'; ?>
+                                <form method="post" onsubmit="return confirm('<?php echo e($confirm); ?>');">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?php echo e((string) $expense['id']); ?>">
+                                    <button class="icon-button danger-link" type="submit">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <div class="empty-state padded-empty">
+                <p>No hay gastos registrados todavía.</p>
+                <p class="text-secondary">Cuando registres el primero, aparecerá aquí con sus filtros y estado.</p>
+            </div>
+        <?php endif; ?>
     </div>
 </section>
 <?php include __DIR__ . '/includes/footer.php'; ?>

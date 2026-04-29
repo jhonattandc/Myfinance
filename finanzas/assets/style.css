@@ -43,6 +43,7 @@ p { margin: 0; }
 }
 .sidebar-header,
 .section-head,
+.section-actions,
 .obligation-topline,
 .obligation-meta,
 .card-actions,
@@ -152,6 +153,12 @@ textarea { resize: vertical; min-height: 96px; }
   transition: max-height .35s ease, opacity .35s ease, margin .35s ease;
 }
 .conditional-panel.is-visible {
+  max-height: 300px;
+  opacity: 1;
+  margin-top: -4px;
+}
+.stack-form:has(input[name="es_cobro_cartera"][value="1"]:checked) #incomeCarteraPanel,
+.stack-form:has(input[name="es_pago_obligacion"][value="1"]:checked) #obligationPanel {
   max-height: 300px;
   opacity: 1;
   margin-top: -4px;
@@ -276,14 +283,47 @@ tbody tr:hover { background: rgba(108, 99, 255, 0.05); }
 .sidebar-overlay { display: none; }
 .mobile-only, .sidebar-close { display: none; }
 .empty-state { display: grid; gap: 14px; place-items: start; }
+.padded-empty { padding: 24px; }
 .login-page { display: grid; place-items: center; min-height: 100vh; }
 .login-shell { width: min(460px, calc(100% - 32px)); }
 .login-card { display: grid; gap: 18px; }
 .login-brand { font-size: 24px; font-weight: 700; }
 .demo-note { display: grid; gap: 4px; color: var(--text-secondary); }
-.chart-card canvas { width: 100% !important; min-height: 320px; }
+.chart-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.chart-frame {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  min-width: 0;
+}
+.chart-card canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+}
 .section-block { display: grid; gap: 16px; }
 .section-head.compact { margin-bottom: 16px; }
+.section-actions { flex-wrap: wrap; justify-content: flex-end; }
+.collapsible-section .collapsible-body {
+  display: grid;
+  gap: 16px;
+}
+.collapsible-section:not(.is-open) .collapsible-body { display: none; }
+.btn-toggle {
+  min-width: 118px;
+  padding-inline: 14px;
+}
+.toggle-icon {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  transition: transform .2s ease;
+}
+.collapsible-section:not(.is-open) .toggle-icon { transform: rotate(180deg); }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -311,6 +351,9 @@ tbody tr:hover { background: rgba(108, 99, 255, 0.05); }
   .four-up, .two-up, .split-main, .dashboard-obligations, .three-up, .two-columns { grid-template-columns: 1fr; }
   .card { padding: 18px; }
   .kpi-card strong { font-size: 28px; }
+  .section-head { align-items: flex-start; flex-wrap: wrap; }
+  .section-actions { width: 100%; }
+  .chart-frame { height: 280px; }
   .btn { width: 100%; }
   .card-actions .btn, .card-actions form { width: 100%; }
   .card-actions form .btn { width: 100%; }

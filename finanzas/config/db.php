@@ -55,6 +55,8 @@ try {
     die('Error de conexión a la base de datos: ' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8'));
 }
 
+ensure_finanzas_schema($pdo);
+
 function e(?string $value): string
 {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
@@ -210,6 +212,14 @@ function fetch_active_cartera(PDO $pdo, int $userId): array
     return $stmt->fetchAll();
 }
 
+function fetch_cartera_by_id(PDO $pdo, int $carteraId, int $userId): ?array
+{
+    $stmt = $pdo->prepare("SELECT *, (monto_total - monto_cobrado) AS saldo_pendiente FROM cartera WHERE id = ? AND user_id = ? LIMIT 1");
+    $stmt->execute([$carteraId, $userId]);
+    $cartera = $stmt->fetch();
+    return $cartera ?: null;
+}
+
 function validate_category_ownership(PDO $pdo, int $categoryId, int $userId): bool
 {
     $stmt = $pdo->prepare('SELECT COUNT(*) FROM categorias WHERE id = ? AND user_id = ?');
@@ -226,6 +236,18 @@ function validate_obligation_ownership(PDO $pdo, int $obligationId, int $userId,
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$obligationId, $userId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function validate_cartera_ownership(PDO $pdo, int $carteraId, int $userId, bool $onlyActive = false): bool
+{
+    $sql = 'SELECT COUNT(*) FROM cartera WHERE id = ? AND user_id = ?';
+    if ($onlyActive) {
+        $sql .= " AND (estado IN ('pendiente', 'vencida')) AND (monto_total - monto_cobrado) > 0";
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$carteraId, $userId]);
     return (bool) $stmt->fetchColumn();
 }
 
@@ -261,14 +283,66 @@ function normalize_cartera_status(array $data): string
 
 function upsert_income(PDO $pdo, int $userId, array $data, ?int $incomeId = null): void
 {
-    if ($incomeId) {
-        $stmt = $pdo->prepare('UPDATE ingresos SET descripcion = ?, monto = ?, fecha = ?, notas = ? WHERE id = ? AND user_id = ?');
-        $stmt->execute([$data['descripcion'], $data['monto'], $data['fecha'], $data['notas'], $incomeId, $userId]);
-        return;
+    $pdo->beginTransaction();
+
+    try {
+        if ($incomeId) {
+            $currentIncome = fetch_income_by_id($pdo, $incomeId, $userId);
+            if (!$currentIncome) {
+                throw new RuntimeException('El ingreso no existe o no pertenece al usuario.');
+            }
+
+            if (!empty($currentIncome['cartera_id'])) {
+                apply_income_to_cartera($pdo, (int) $currentIncome['cartera_id'], $userId, -((float) $currentIncome['monto']));
+            }
+
+            $stmt = $pdo->prepare('UPDATE ingresos SET descripcion = ?, monto = ?, fecha = ?, notas = ?, cartera_id = ? WHERE id = ? AND user_id = ?');
+            $stmt->execute([$data['descripcion'], $data['monto'], $data['fecha'], $data['notas'], $data['cartera_id'], $incomeId, $userId]);
+        } else {
+            $stmt = $pdo->prepare('INSERT INTO ingresos (descripcion, monto, fecha, notas, cartera_id, user_id) VALUES (?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$data['descripcion'], $data['monto'], $data['fecha'], $data['notas'], $data['cartera_id'], $userId]);
+        }
+
+        if (!empty($data['cartera_id'])) {
+            apply_income_to_cartera($pdo, (int) $data['cartera_id'], $userId, (float) $data['monto']);
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        throw $e;
+    }
+}
+
+function delete_income(PDO $pdo, int $incomeId, int $userId): ?array
+{
+    $income = fetch_income_by_id($pdo, $incomeId, $userId);
+    if (!$income) {
+        return null;
     }
 
-    $stmt = $pdo->prepare('INSERT INTO ingresos (descripcion, monto, fecha, notas, user_id) VALUES (?, ?, ?, ?, ?)');
-    $stmt->execute([$data['descripcion'], $data['monto'], $data['fecha'], $data['notas'], $userId]);
+    $pdo->beginTransaction();
+
+    try {
+        if (!empty($income['cartera_id'])) {
+            apply_income_to_cartera($pdo, (int) $income['cartera_id'], $userId, -((float) $income['monto']));
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM ingresos WHERE id = ? AND user_id = ?');
+        $stmt->execute([$incomeId, $userId]);
+
+        $pdo->commit();
+        return $income;
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        throw $e;
+    }
 }
 
 function upsert_expense(PDO $pdo, int $userId, array $data, ?int $expenseId = null): void
@@ -374,4 +448,35 @@ function fetch_dashboard_chart_data(PDO $pdo, int $userId): array
             'colors' => array_column($categoryRows, 'color'),
         ],
     ];
+}
+
+function ensure_finanzas_schema(PDO $pdo): void
+{
+    $stmt = $pdo->query("SHOW COLUMNS FROM ingresos LIKE 'cartera_id'");
+    if (!$stmt->fetch()) {
+        $pdo->exec('ALTER TABLE ingresos ADD COLUMN cartera_id INT NULL AFTER notas');
+        $pdo->exec('ALTER TABLE ingresos ADD CONSTRAINT fk_ingresos_cartera FOREIGN KEY (cartera_id) REFERENCES cartera(id) ON DELETE SET NULL');
+    }
+}
+
+function fetch_income_by_id(PDO $pdo, int $incomeId, int $userId): ?array
+{
+    $stmt = $pdo->prepare('SELECT * FROM ingresos WHERE id = ? AND user_id = ? LIMIT 1');
+    $stmt->execute([$incomeId, $userId]);
+    $income = $stmt->fetch();
+    return $income ?: null;
+}
+
+function apply_income_to_cartera(PDO $pdo, int $carteraId, int $userId, float $delta): void
+{
+    $stmt = $pdo->prepare('UPDATE cartera SET monto_cobrado = GREATEST(0, monto_cobrado + ?) WHERE id = ? AND user_id = ?');
+    $stmt->execute([$delta, $carteraId, $userId]);
+
+    $cartera = fetch_cartera_by_id($pdo, $carteraId, $userId);
+    if (!$cartera) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('UPDATE cartera SET estado = ? WHERE id = ? AND user_id = ?');
+    $stmt->execute([normalize_cartera_status($cartera), $carteraId, $userId]);
 }
