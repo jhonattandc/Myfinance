@@ -4,6 +4,35 @@
     return '$ ' + new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(number);
   };
 
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const getThemeColors = () => ({
+    text: cssVar('--text-secondary') || '#8892a4',
+    border: cssVar('--border') || '#2a2d3e',
+    accent: cssVar('--accent') || '#6c63ff',
+  });
+  const setTheme = (theme) => {
+    const nextTheme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nextTheme;
+    try {
+      localStorage.setItem('finance-theme', nextTheme);
+    } catch (error) {
+      // Theme switching still works even if browser storage is unavailable.
+    }
+
+    document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+      const isActive = button.dataset.themeChoice === nextTheme;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
+
+    window.dispatchEvent(new CustomEvent('finance:theme-change'));
+  };
+
+  document.querySelectorAll('[data-theme-choice]').forEach((button) => {
+    button.addEventListener('click', () => setTheme(button.dataset.themeChoice));
+  });
+  setTheme(document.documentElement.dataset.theme || 'dark');
+
   const flashRoot = document.getElementById('flash-root');
   if (flashRoot && window.APP_FLASH && window.APP_FLASH.message) {
     const toast = document.createElement('div');
@@ -188,24 +217,54 @@
   renderIncomePreview();
 
   if (window.Chart) {
-    Chart.defaults.color = '#8892a4';
-    Chart.defaults.borderColor = '#2a2d3e';
+    const colors = getThemeColors();
+    Chart.defaults.color = colors.text;
+    Chart.defaults.borderColor = colors.border;
     Chart.defaults.font.family = 'Inter';
     Chart.defaults.responsive = true;
     Chart.defaults.maintainAspectRatio = false;
   }
 
+  const applyChartTheme = (chart) => {
+    if (!chart) {
+      return;
+    }
+
+    const colors = getThemeColors();
+    chart.options.color = colors.text;
+    chart.options.borderColor = colors.border;
+
+    if (chart.options.scales) {
+      Object.values(chart.options.scales).forEach((scale) => {
+        if (scale.grid) {
+          scale.grid.color = colors.border;
+        }
+        if (scale.ticks) {
+          scale.ticks.color = colors.text;
+        }
+      });
+    }
+
+    if (chart.options.plugins?.legend?.labels) {
+      chart.options.plugins.legend.labels.color = colors.text;
+    }
+
+    chart.update();
+  };
+
   const monthlyCanvas = document.getElementById('expensesMonthlyChart');
+  let monthlyChart = null;
   if (monthlyCanvas && window.Chart) {
     const data = JSON.parse(monthlyCanvas.dataset.chart || '{}');
-    new Chart(monthlyCanvas, {
+    const colors = getThemeColors();
+    monthlyChart = new Chart(monthlyCanvas, {
       type: 'bar',
       data: {
         labels: data.labels || [],
         datasets: [{
           label: 'Gastos',
           data: data.values || [],
-          backgroundColor: '#6c63ff',
+          backgroundColor: colors.accent,
           borderRadius: 6,
           borderSkipped: false,
         }],
@@ -219,15 +278,17 @@
           y: {
             beginAtZero: true,
             ticks: {
+              color: colors.text,
               callback: (value) => formatCOP(value),
               maxTicksLimit: 6,
               padding: 10,
             },
-            grid: { color: '#2a2d3e' },
+            grid: { color: colors.border },
           },
           x: {
             grid: { display: false },
             ticks: {
+              color: colors.text,
               maxRotation: 0,
               minRotation: 0,
             },
@@ -238,9 +299,11 @@
   }
 
   const categoryCanvas = document.getElementById('expensesCategoryChart');
+  let categoryChart = null;
   if (categoryCanvas && window.Chart) {
     const data = JSON.parse(categoryCanvas.dataset.chart || '{}');
-    new Chart(categoryCanvas, {
+    const colors = getThemeColors();
+    categoryChart = new Chart(categoryCanvas, {
       type: 'doughnut',
       data: {
         labels: data.labels || [],
@@ -263,10 +326,24 @@
               padding: 16,
               usePointStyle: true,
               pointStyle: 'circle',
+              color: colors.text,
             },
           },
         },
       },
     });
   }
+
+  window.addEventListener('finance:theme-change', () => {
+    if (window.Chart) {
+      const colors = getThemeColors();
+      Chart.defaults.color = colors.text;
+      Chart.defaults.borderColor = colors.border;
+      if (monthlyChart?.data?.datasets?.[0]) {
+        monthlyChart.data.datasets[0].backgroundColor = colors.accent;
+      }
+      applyChartTheme(monthlyChart);
+      applyChartTheme(categoryChart);
+    }
+  });
 })();
